@@ -40,7 +40,9 @@ public class Placeholder extends PlaceholderExpansion {
 
     @Override
     public @Nullable String onPlaceholderRequest(Player player, @NotNull String params) {
-        return getPlayer(player).getOrDefault(params, "");
+        String response = getPlayer(player).get(params);
+        if (response == null) return "";
+        return response;
     }
 
     private List<Map<String, Object>> rows = new ArrayList<>();
