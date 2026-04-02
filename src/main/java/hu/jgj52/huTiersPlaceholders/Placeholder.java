@@ -16,6 +16,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static hu.jgj52.database.Database.postgres;
 import static hu.jgj52.huTiersPlaceholders.HuTiersPlaceholders.plugin;
@@ -40,13 +41,11 @@ public class Placeholder extends PlaceholderExpansion {
 
     @Override
     public @Nullable String onPlaceholderRequest(Player player, @NotNull String params) {
-        String response = getPlayer(player).get(params);
-        if (response == null) return "";
-        return response;
+        return getPlayer(player).get(params);
     }
 
     private List<Map<String, Object>> rows = new ArrayList<>();
-    private final Map<UUID, Map<String, String>> cache = new HashMap<>();
+    private final Map<UUID, Map<String, String>> cache = new ConcurrentHashMap<>();
     private boolean update = true;
 
     public void update() {
@@ -60,7 +59,7 @@ public class Placeholder extends PlaceholderExpansion {
                 postgres.from("players").execute().thenAccept(result -> {
                     if (!result.hasError()) {
                         Bukkit.getScheduler().runTask(plugin, () -> rows = List.copyOf(result.data));
-                        new Thread(() -> {
+                        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
                             try {
                                 HttpRequest request = HttpRequest.newBuilder().uri(new URI("https://api.hutiers.hu/v2/overall/0/-1")).GET().build();
                                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -87,7 +86,7 @@ public class Placeholder extends PlaceholderExpansion {
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
-                        }).start();
+                        });
                         cache.clear();
                     }
                 });
@@ -105,7 +104,7 @@ public class Placeholder extends PlaceholderExpansion {
                 Map<String, String> data = new HashMap<>();
                 for (Map.Entry<String, Object> entry : row.entrySet()) {
                     if (!entry.getKey().equals("uuid")) {
-                        data.put(entry.getKey(), entry.getValue().toString());
+                        data.put(entry.getKey(), entry.getValue() != null ? entry.getValue().toString() : "");
                     }
                 }
                 cache.put(u, data);
